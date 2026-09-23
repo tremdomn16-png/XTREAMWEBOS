@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { enforceApiAccess } from '@/app/lib/apiAuth';
 import { DEFAULT_SUBTITLE_LANGUAGE, resolveSubtitlePath } from '@/app/lib/subtitleStore';
+import { isErrnoCode } from '@/app/lib/nodeErrors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,13 +29,13 @@ export async function GET(request: Request) {
         try {
             const data = await fs.readFile(filePath, 'utf-8');
             return NextResponse.json(JSON.parse(data));
-        } catch (error: any) {
-            if (error.code === 'ENOENT') {
+        } catch (error) {
+            if (isErrnoCode(error, 'ENOENT')) {
                 return NextResponse.json(null);
             }
             throw error;
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Subtitles/User] GET error:', error);
         return NextResponse.json({ error: 'Failed to read subtitle' }, { status: 500 });
     }
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
         await fs.writeFile(filePath, JSON.stringify(subtitleData, null, 2));
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Subtitles/User] POST error:', error);
         return NextResponse.json({ error: 'Failed to save subtitle' }, { status: 500 });
     }
@@ -97,13 +98,13 @@ export async function DELETE(request: Request) {
         try {
             await fs.unlink(filePath);
             return NextResponse.json({ success: true });
-        } catch (error: any) {
-            if (error.code === 'ENOENT') {
+        } catch (error) {
+            if (isErrnoCode(error, 'ENOENT')) {
                 return NextResponse.json({ success: true }); // Already deleted
             }
             throw error;
         }
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Subtitles/User] DELETE error:', error);
         return NextResponse.json({ error: 'Failed to delete subtitle' }, { status: 500 });
     }

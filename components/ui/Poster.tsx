@@ -61,6 +61,8 @@ export default function Poster({
             <div className={['ratio', RATIO_CLASSNAME[ratio], 'focus-card-target rounded-xl overflow-hidden bg-surface-2'].join(' ')}>
                 <div className="ratio-fill">
                     {showImage ? (
+                        // Catalog posters are remote/provider URLs; next/image needs a fixed loader.
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                             src={image}
                             alt={title}

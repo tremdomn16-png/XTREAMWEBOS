@@ -157,7 +157,7 @@ export const generateDailyCarousels = (
 /**
  * Generate cache key for TMDb API calls
  */
-export const generateCacheKey = (endpoint: string, params: Record<string, any>): string => {
+export const generateCacheKey = (endpoint: string, params: Record<string, string | number | boolean | undefined>): string => {
     const sortedParams = Object.keys(params)
         .sort()
         .map(key => `${key}=${params[key]}`)
@@ -310,7 +310,7 @@ const levenshteinDistance = (str1: string, str2: string, maxDist?: number): numb
     }
 
     // Use single-row optimization instead of full matrix (O(n) space vs O(n*m))
-    let prevRow: number[] = [];
+    const prevRow: number[] = [];
     for (let j = 0; j <= len1; j++) {
         prevRow[j] = j;
     }

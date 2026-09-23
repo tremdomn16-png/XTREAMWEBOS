@@ -53,7 +53,7 @@ export default function PairPage() {
         setError('');
         const normalized = code.trim().toUpperCase();
         if (normalized.length !== 6) {
-            setError('O código tem 6 caracteres');
+            setError(t('pair.codeLength'));
             return;
         }
         setIsSubmitting(true);
@@ -65,13 +65,13 @@ export default function PairPage() {
             });
             const data = await res.json();
             if (!res.ok || !data.ok) {
-                setError(data.error || 'Código inválido ou expirado');
+                setError(data.error || t('pair.codeInvalid'));
                 return;
             }
             setCode(normalized);
             setStep(2);
         } catch {
-            setError('Falha ao validar o código. Tente de novo.');
+            setError(t('pair.codeCheckFailed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -85,9 +85,9 @@ export default function PairPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            setDoneNote(`Login OK, mas a TV não recebeu (${data.error || res.status}). Você segue logado no celular.`);
+            setDoneNote(t('pair.attachFail', { reason: data.error || res.status }));
         } else {
-            setDoneNote(`Credenciais enviadas para a TV (código ${code}). A TV entra sozinha em instantes.`);
+            setDoneNote(t('pair.attachOk', { code }));
         }
         setStep(3);
     };
@@ -100,7 +100,7 @@ export default function PairPage() {
             if (method === 'm3u') {
                 const url = m3uUrl.trim();
                 if (!url) {
-                    setError('Cole o link completo M3U');
+                    setError(t('pair.m3uRequired'));
                     setIsSubmitting(false);
                     return;
                 }
@@ -110,7 +110,7 @@ export default function PairPage() {
             }
 
             if (!hostUrl.trim() || !username || !password) {
-                setError('Informe DNS, usuário e senha');
+                setError(t('pair.credentialsRequired'));
                 setIsSubmitting(false);
                 return;
             }
@@ -150,34 +150,31 @@ export default function PairPage() {
                     <h1 className="text-3xl font-semibold text-ink tracking-tight">
                         <span className="text-brand">X</span>stream
                     </h1>
-                    <p className="text-ink-2 text-sm mt-2">Pareamento · sempre pelo código da TV</p>
+                    <p className="text-ink-2 text-sm mt-2">{t('pair.subtitle')}</p>
                     <p className="text-ink-3 text-xs mt-1">
-                        A TV fica em <span className="font-mono">/tv</span>. Aqui: código → conexão → envio.
+                        {t('pair.tvGoesTo', { path: '/tv' })}
                     </p>
                 </div>
 
                 <div className="bg-surface-2 border border-line rounded-xl p-4 mb-6 flex items-center justify-between">
-                    {stepBadge(1, 'Código')}
+                    {stepBadge(1, t('pair.stepCode'))}
                     <span className="text-ink-3">→</span>
-                    {stepBadge(2, 'IPTV')}
+                    {stepBadge(2, t('pair.stepIptv'))}
                     <span className="text-ink-3">→</span>
-                    {stepBadge(3, 'Enviar')}
+                    {stepBadge(3, t('pair.stepSend'))}
                 </div>
 
                 {step === 1 && (
                     <form onSubmit={confirmCode} className="space-y-4 bg-surface border border-line rounded-xl p-5" autoComplete="off">
                         <div>
-                            <p className="font-semibold text-ink">Etapa 1 · Código da TV (obrigatória)</p>
-                            <p className="text-sm text-ink-2 mt-1">
-                                Abra o app na TV (ou escaneie o QR). Digite as 6 letras que aparecem na tela.
-                                Sem esse código não é possível parear.
-                            </p>
+                            <p className="font-semibold text-ink">{t('pair.step1Title')}</p>
+                            <p className="text-sm text-ink-2 mt-1">{t('pair.step1Desc')}</p>
                         </div>
-                        <Field label="Código de pareamento" htmlFor="pair-code">
+                        <Field label={t('pair.codeLabel')} htmlFor="pair-code">
                             <input
                                 id="pair-code"
                                 type="text"
-                                placeholder="ex: AB3K7M"
+                                placeholder={t('pair.codePlaceholder')}
                                 value={code}
                                 onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
                                 className={`${inputClassName} tracking-[0.3em] text-center font-mono uppercase text-lg h-14`}
@@ -190,11 +187,9 @@ export default function PairPage() {
                         </Field>
                         {error && <p className="text-brand text-sm">{error}</p>}
                         <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting}>
-                            Confirmar código
+                            {t('pair.confirmCode')}
                         </Button>
-                        <p className="text-xs text-ink-3 text-center">
-                            Sem TV ainda? Abra o app na TV em <span className="font-mono">/tv</span> para gerar o código.
-                        </p>
+                        <p className="text-xs text-ink-3 text-center">{t('pair.noTvHint', { path: '/tv' })}</p>
                     </form>
                 )}
 
@@ -202,11 +197,11 @@ export default function PairPage() {
                     <div className="space-y-4">
                         <div className="bg-surface border border-line rounded-xl p-4 flex items-center justify-between">
                             <div>
-                                <p className="text-xs text-ink-2 uppercase tracking-widest">Código confirmado</p>
+                                <p className="text-xs text-ink-2 uppercase tracking-widest">{t('pair.codeConfirmed')}</p>
                                 <p className="text-2xl font-mono font-bold tracking-[0.25em] text-ok">{code}</p>
                             </div>
                             <Button variant="ghost" size="sm" onClick={() => { setStep(1); setError(''); }}>
-                                Trocar
+                                {t('pair.change')}
                             </Button>
                         </div>
 
@@ -217,7 +212,7 @@ export default function PairPage() {
                                 className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${method === 'xtream' ? 'bg-surface-3 text-ink' : 'text-ink-2 hover:text-ink'}`}
                                 data-focusable="true"
                             >
-                                DNS Xtream
+                                {t('pair.dnsXtream')}
                             </button>
                             <button
                                 type="button"
@@ -225,17 +220,17 @@ export default function PairPage() {
                                 className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${method === 'm3u' ? 'bg-surface-3 text-ink' : 'text-ink-2 hover:text-ink'}`}
                                 data-focusable="true"
                             >
-                                Link M3U
+                                {t('pair.linkM3u')}
                             </button>
                         </div>
 
                         <form onSubmit={connect} className="space-y-4 bg-surface border border-line rounded-xl p-5" autoComplete="off">
-                            <p className="font-semibold text-ink">Etapa 2 · Como conectar o IPTV</p>
+                            <p className="font-semibold text-ink">{t('pair.step2Title')}</p>
 
                             {method === 'xtream' ? (
                                 <>
-                                    <p className="text-xs text-ink-3 -mt-2">DNS Xtream + usuário e senha do provedor.</p>
-                                    <Field label="DNS Xtream" htmlFor="xtream-host" hint="Ex: https://seu.dns.space">
+                                    <p className="text-xs text-ink-3 -mt-2">{t('pair.step2XtreamHint')}</p>
+                                    <Field label={t('pair.dnsXtream')} htmlFor="xtream-host" hint={t('pair.hostHint')}>
                                         <input
                                             id="xtream-host"
                                             type="url"
@@ -277,13 +272,11 @@ export default function PairPage() {
                                 </>
                             ) : (
                                 <>
-                                    <p className="text-xs text-ink-3 -mt-2">
-                                        Link completo M3U / M3U Plus / get.php (já com credenciais).
-                                    </p>
+                                    <p className="text-xs text-ink-3 -mt-2">{t('pair.step2M3uHint')}</p>
                                     <Field
-                                        label="Link M3U completo"
+                                        label={t('pair.m3uLabel')}
                                         htmlFor="m3u-url"
-                                        hint="Ex: http://dns:8080/get.php?username=…&password=…&type=m3u_plus"
+                                        hint={t('pair.m3uHint')}
                                     >
                                         <input
                                             id="m3u-url"
@@ -304,7 +297,7 @@ export default function PairPage() {
 
                             {error && <p className="text-brand text-sm">{error}</p>}
                             <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting}>
-                                Conectar e enviar para a TV
+                                {t('pair.connectSend')}
                             </Button>
                         </form>
                     </div>
@@ -316,15 +309,15 @@ export default function PairPage() {
                             ✓
                         </div>
                         <div>
-                            <p className="font-semibold text-ink">Etapa 3 concluída</p>
+                            <p className="font-semibold text-ink">{t('pair.step3Done')}</p>
                             <p className="text-sm text-ink-2 mt-1">{doneNote}</p>
                         </div>
                         <div className="space-y-2">
                             <Button variant="primary" size="lg" fullWidth onClick={() => { window.location.href = '/dashboard'; }}>
-                                Ir para o painel
+                                {t('pair.goDashboard')}
                             </Button>
                             <Button variant="ghost" fullWidth onClick={() => { setStep(1); setCode(''); setError(''); setDoneNote(''); }}>
-                                Parear outra TV
+                                {t('pair.pairAnother')}
                             </Button>
                         </div>
                     </div>
@@ -332,7 +325,7 @@ export default function PairPage() {
 
                 <div className="mt-6 text-center">
                     <Link href="/" className="text-xs text-ink-3 hover:text-ink underline" data-focusable="true">
-                        Só quero entrar no celular (sem parear TV)
+                        {t('pair.phoneOnly')}
                     </Link>
                 </div>
             </div>

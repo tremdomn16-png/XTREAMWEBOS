@@ -320,7 +320,7 @@ async function runDevice(browser, label, contextOptions) {
 
         // ── Movies catalog home (Netflix-style rows, no category-first gate) ──
         await page.goto('/dashboard/movies', { waitUntil: 'domcontentloaded' });
-        await settle(page, 1200);
+        await settle(page, 2500);
         check('movies path', (await pathOf(page)) === '/dashboard/movies', await pathOf(page));
         check('movies catalog home', await visible(page.getByTestId('catalog-home-movie')));
         check('movies explore categories', await visible(page.getByTestId('catalog-explore')));

@@ -19,10 +19,13 @@ export function useInfiniteScroll<T>(
     const [visibleCount, setVisibleCount] = useState(initialBatchSize);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-    // Reset visible count when items change (e.g. after search or sort)
-    useEffect(() => {
+    // Adjust during render when the item list identity changes (React docs
+    // pattern for deriving state from props — avoids setState-in-effect).
+    const [prevItems, setPrevItems] = useState(items);
+    if (prevItems !== items) {
+        setPrevItems(items);
         setVisibleCount(initialBatchSize);
-    }, [items, initialBatchSize]);
+    }
 
     const loadMore = useCallback(() => {
         setVisibleCount((prev) => Math.min(prev + loadBatchSize, items.length));

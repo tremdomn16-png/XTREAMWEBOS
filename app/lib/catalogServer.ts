@@ -13,6 +13,7 @@ import {
     TMDbMovie,
     TMDbTVShow,
     TMDbGenre,
+    TMDbVideo,
     generateCacheKey
 } from './tmdb';
 import type { CachedStream } from './dbTypes';
@@ -50,7 +51,7 @@ const getYear = (dateStr: string) => {
 async function fetchWithCache<T>(
     apiKey: string,
     endpoint: string,
-    params: Record<string, any> = {}
+    params: Record<string, string | number | boolean | undefined> = {}
 ): Promise<T | null> {
     const cacheKey = generateCacheKey(endpoint, params);
 
@@ -145,11 +146,11 @@ async function fetchTVByGenre(apiKey: string, genreId: number, page = 1): Promis
     return data?.results || [];
 }
 
-async function fetchVideos(apiKey: string, type: 'movie' | 'tv' | 'series', id: number): Promise<any[]> {
+async function fetchVideos(apiKey: string, type: 'movie' | 'tv' | 'series', id: number): Promise<TMDbVideo[]> {
     const _type = type === 'series' ? 'tv' : type;
     const endpoint = `/${_type}/${id}/videos`;
     try {
-        const data = await fetchWithCache<{ results: any[] }>(apiKey, endpoint);
+        const data = await fetchWithCache<{ results: TMDbVideo[] }>(apiKey, endpoint);
         return data?.results || [];
     } catch {
         return [];
@@ -300,11 +301,11 @@ export async function getTMDbCarousels(apiKey: string, type?: CarouselTypeFilter
                         id: carousel.id,
                         title: carousel.title,
                         type: carousel.type === 'tv' ? ('series' as const) : ('movie' as const),
-                        data: [] as any[]
+                        data: [] as CatalogCarouselItem[]
                     };
                 }
 
-                const filteredItems: any[] = [];
+                const filteredItems: CatalogCarouselItem[] = [];
                 const matchedStreamIds = new Set<number | string>();
 
                 for (const tmdbItem of tmdbItems) {
@@ -323,7 +324,7 @@ export async function getTMDbCarousels(apiKey: string, type?: CarouselTypeFilter
                         ? (tmdbItem as TMDbMovie).release_date
                         : (tmdbItem as TMDbTVShow).first_air_date;
 
-                    const matchResult = findBestMatch<any>(tmdbTitle, targetDatabase, 0.85, extractYear(yearStr));
+                    const matchResult = findBestMatch<CachedStream>(tmdbTitle, targetDatabase, 0.85, extractYear(yearStr));
 
                     if (matchResult && !matchedStreamIds.has(matchResult.item.id)) {
                         const iptvMatch = matchResult.item;
@@ -395,7 +396,20 @@ export async function getBackendCarousels(type?: CarouselTypeFilter): Promise<Ca
     return allCarousels;
 }
 
-export async function getBackendHeroItems(type: 'all' | 'movie' | 'series' = 'all'): Promise<any[]> {
+export interface HeroItem {
+    id: string;
+    tmdbId?: number;
+    title: string;
+    description: string;
+    backdrop: string;
+    poster: string;
+    type: 'movie' | 'series';
+    rating: number;
+    year: number;
+    videoKey: string | null;
+}
+
+export async function getBackendHeroItems(type: 'all' | 'movie' | 'series' = 'all'): Promise<HeroItem[]> {
     const today = new Date();
     const dateKey = `${CACHE_VERSION}-hero-${type}-${today.toISOString().split('T')[0]}`;
 
@@ -404,9 +418,9 @@ export async function getBackendHeroItems(type: 'all' | 'movie' | 'series' = 'al
         const cached = library.getCarouselCache(dateKey);
         if (cached && cached.length > 0) {
             console.log('[catalogServer] HeroSection: Using cached items', cached.length);
-            return cached;
+            return cached as HeroItem[];
         }
-    } catch (e) {
+    } catch {
         console.warn('[catalogServer] Hero cache miss');
     }
 
@@ -425,7 +439,7 @@ export async function getBackendHeroItems(type: 'all' | 'movie' | 'series' = 'al
         console.error('[catalogServer] Failed to query streams for Hero:', err);
     }
 
-    const potentialItems: any[] = [];
+    const potentialItems: HeroItem[] = [];
 
     // 2. Fetch TMDB Trending and match
     if (apiKey) {

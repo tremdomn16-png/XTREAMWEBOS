@@ -515,6 +515,8 @@ export default function WatchMoviePage() {
                 <div className="flex flex-col lg:flex-row space-y-10 lg:space-y-0 lg:space-x-16 items-start">
                     {/* Poster */}
                     <div className="w-full max-w-[300px] lg:max-w-[400px] flex-shrink-0 rounded-xl overflow-hidden shadow-2xl shadow-black/50 mx-auto lg:mx-0">
+                        {/* Provider poster URL — remote host, not a bundled asset. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={movie.info.movie_image}
                             alt={movie.info.name}

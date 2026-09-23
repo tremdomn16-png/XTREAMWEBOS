@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { enforceApiAccess } from '@/app/lib/apiAuth';
+import { errorMessage } from '@/app/lib/nodeErrors';
 
 const OPENSUBTITLES_API_BASE = 'https://api.opensubtitles.com/api/v1';
 
@@ -209,10 +210,10 @@ export async function POST(request: Request) {
             );
         }
 
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Subtitles] CRITICAL Error:', error);
         return NextResponse.json(
-            { error: 'Internal Server Error', details: error.message },
+            { error: 'Internal Server Error', details: errorMessage(error) },
             { status: 500 }
         );
     }

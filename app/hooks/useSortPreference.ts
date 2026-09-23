@@ -1,29 +1,50 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { SortOption } from '@/components/SortControls';
 
-export function useSortPreference(key: string, defaultValue: SortOption = 'added') {
-    // Initial state set to defaultValue, will be updated by useEffect on mount
-    const [sort, setSort] = useState<SortOption>(defaultValue);
-    const [isLoaded, setIsLoaded] = useState(false);
+function readSavedSort(key: string): SortOption | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        return localStorage.getItem(`xstream_sort_${key}`) as SortOption | null;
+    } catch {
+        return null;
+    }
+}
 
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`xstream_sort_${key}`);
-            if (saved) {
-                setSort(saved as SortOption);
-            }
-            setIsLoaded(true);
-        }
-    }, [key]);
+interface SortState {
+    key: string;
+    sort: SortOption;
+    isLoaded: boolean;
+}
+
+export function useSortPreference(key: string, defaultValue: SortOption = 'added') {
+    // SSR-safe: start at the default; hydrate from localStorage during the first
+    // client render (and again when `key` changes) without an effect setState.
+    const [state, setState] = useState<SortState>(() => ({
+        key,
+        sort: defaultValue,
+        isLoaded: false,
+    }));
+
+    if (typeof window !== 'undefined' && (!state.isLoaded || state.key !== key)) {
+        setState({
+            key,
+            sort: readSavedSort(key) ?? defaultValue,
+            isLoaded: true,
+        });
+    }
 
     const updateSort = (newSort: SortOption) => {
-        setSort(newSort);
+        setState((prev) => ({ ...prev, sort: newSort }));
         if (typeof window !== 'undefined') {
-            localStorage.setItem(`xstream_sort_${key}`, newSort);
+            try {
+                localStorage.setItem(`xstream_sort_${key}`, newSort);
+            } catch {
+                /* storage unavailable — in-memory only for this session */
+            }
         }
     };
 
-    return [sort, updateSort, isLoaded] as const;
+    return [state.sort, updateSort, state.isLoaded] as const;
 }

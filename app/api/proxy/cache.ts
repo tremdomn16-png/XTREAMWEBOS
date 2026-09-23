@@ -1,4 +1,6 @@
-export const responseCache = new Map<string, { data: any[]; timestamp: number; total: number }>();
+type CachedEntry = { data: unknown[]; timestamp: number; total: number };
+
+export const responseCache = new Map<string, CachedEntry>();
 export const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export function getCacheKey(hostUrl: string, username: string, action: string): string {
@@ -28,7 +30,7 @@ export function performPeriodicCleanup() {
  */
 export async function fetchWithRetry(apiUrl: string, action: string, maxRetries: number = 3): Promise<Response> {
     let response: Response | undefined;
-    let lastError: any;
+    let lastError: unknown;
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
@@ -52,7 +54,8 @@ export async function fetchWithRetry(apiUrl: string, action: string, maxRetries:
     }
 
     if (!response) {
-        throw lastError || new Error('Fetch failed after retries');
+        if (lastError !== undefined) throw lastError;
+        throw new Error('Fetch failed after retries');
     }
 
     console.log(`[Proxy] Response: ${response.status} ${response.statusText}`);
@@ -62,7 +65,7 @@ export async function fetchWithRetry(apiUrl: string, action: string, maxRetries:
 /**
  * Parse response body (JSON or text)
  */
-export async function parseResponse(response: Response): Promise<any> {
+export async function parseResponse(response: Response): Promise<unknown> {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
         return response.json();

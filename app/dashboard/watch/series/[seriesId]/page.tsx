@@ -200,6 +200,9 @@ export default function WatchSeriesPage() {
             }
         }
         return 0;
+        // `selectedEpisode` is intentionally omitted: the resume value is only
+        // re-read when the episode id changes (same as `selectedEpisode?.id`).
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedEpisode?.id, getProgress]);
 
     // The start point is baked into ffmpeg when the broadcast is created, so it is decided
@@ -413,6 +416,8 @@ export default function WatchSeriesPage() {
 
         loadSub();
         return () => { cancelled = true; };
+        // `selectedEpisode` identity is covered by `selectedEpisode?.id` below.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedEpisode?.id, seriesHasSubs, parentTmdbId, batchLanguage, activeSeason, series, getSavedSubtitle, autoDownloadEpisodeSubtitle]);
 
     // Load detailed progress for this series
@@ -856,6 +861,8 @@ export default function WatchSeriesPage() {
                 <div className="flex flex-col lg:flex-row space-y-10 lg:space-y-0 lg:space-x-16 items-start mb-14">
                     {/* Poster */}
                     <div className="w-full max-w-[300px] lg:max-w-[400px] flex-shrink-0 rounded-xl overflow-hidden shadow-2xl shadow-black/50 mx-auto lg:mx-0">
+                        {/* Provider cover URL — remote host, not a bundled asset. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                             src={series.info.cover}
                             alt={series.info.name}
@@ -1069,6 +1076,7 @@ export default function WatchSeriesPage() {
                                             <div className="w-32 md:w-40 flex-shrink-0 mr-4">
                                                 <div className="ratio ratio-wide rounded-lg overflow-hidden bg-surface-2">
                                                     {ep.info?.movie_image ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
                                                         <img
                                                             src={ep.info.movie_image}
                                                             alt=""

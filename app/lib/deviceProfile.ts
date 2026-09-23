@@ -126,16 +126,18 @@ function detectTier(): DeviceTier {
     // --- Use hardware signals for non-TV devices ---
 
     // navigator.deviceMemory (Chrome 63+, not available on Firefox/Safari)
-    const deviceMemory = (navigator as any).deviceMemory as number | undefined;
+    const deviceMemory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
 
     // navigator.hardwareConcurrency (widely supported)
     const cpuCores = navigator.hardwareConcurrency || 0;
 
     // performance.memory (Chrome non-standard)
-    const perfMemory = (performance as any).memory as {
-        jsHeapSizeLimit?: number;
-        totalJSHeapSize?: number;
-    } | undefined;
+    const perfMemory = (performance as Performance & {
+        memory?: {
+            jsHeapSizeLimit?: number;
+            totalJSHeapSize?: number;
+        };
+    }).memory;
 
     const heapLimitMB = perfMemory?.jsHeapSizeLimit
         ? Math.round(perfMemory.jsHeapSizeLimit / (1024 * 1024))

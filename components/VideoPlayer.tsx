@@ -1228,6 +1228,7 @@ export default function VideoPlayer({
             video.removeEventListener('volumechange', handleVolumeChange);
         };
         // `initialTime` is applied by the dedicated late-seek effect below, not here.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [src, autoPlay, t]);
 
     useEffect(() => {

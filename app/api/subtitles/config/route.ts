@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { enforceApiAccess } from '@/app/lib/apiAuth';
+import { isErrnoCode } from '@/app/lib/nodeErrors';
 
 const CONFIG_DIR = path.join(process.cwd(), 'data');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'opensubtitles-config.json');
@@ -30,9 +31,9 @@ export async function GET(request: NextRequest) {
         const config: SubtitleConfig = JSON.parse(data);
 
         return NextResponse.json(config);
-    } catch (error: any) {
+    } catch (error) {
         // Config file doesn't exist or is invalid
-        if (error.code === 'ENOENT') {
+        if (isErrnoCode(error, 'ENOENT')) {
             return NextResponse.json({ apiKey: null }, { status: 404 });
         }
         return NextResponse.json({ error: 'Failed to read config' }, { status: 500 });
@@ -98,14 +99,14 @@ export async function DELETE(request: NextRequest) {
     const accessResponse = await enforceApiAccess(request);
     if (accessResponse) return accessResponse;
 
-    try {
-        await fs.unlink(CONFIG_FILE);
-        return NextResponse.json({ success: true });
-    } catch (error: any) {
-        // File doesn't exist, that's fine
-        if (error.code === 'ENOENT') {
+        try {
+            await fs.unlink(CONFIG_FILE);
             return NextResponse.json({ success: true });
+        } catch (error) {
+            // File doesn't exist, that's fine
+            if (isErrnoCode(error, 'ENOENT')) {
+                return NextResponse.json({ success: true });
+            }
+            return NextResponse.json({ error: 'Failed to delete config' }, { status: 500 });
         }
-        return NextResponse.json({ error: 'Failed to delete config' }, { status: 500 });
-    }
 }

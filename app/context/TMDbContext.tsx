@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { TMDbGenre, TMDbMovie, TMDbTVShow, generateCacheKey, cleanSearchQuery, extractYear } from '../lib/tmdb';
+import { TMDbGenre, TMDbMovie, TMDbTVShow, TMDbVideo, generateCacheKey, cleanSearchQuery, extractYear } from '../lib/tmdb';
 import * as db from '../lib/db';
 import { apiFetch } from '../lib/apiClient';
 
@@ -23,7 +23,7 @@ interface TMDbContextType {
     fetchTrending: (page?: number) => Promise<(TMDbMovie | TMDbTVShow)[]>;
     searchMovie: (query: string) => Promise<TMDbMovie | null>;
     searchTV: (query: string) => Promise<TMDbTVShow | null>;
-    fetchVideos: (type: 'movie' | 'tv' | 'series', id: number) => Promise<any[]>;
+    fetchVideos: (type: 'movie' | 'tv' | 'series', id: number) => Promise<TMDbVideo[]>;
 }
 
 const TMDbContext = createContext<TMDbContextType | undefined>(undefined);
@@ -99,7 +99,7 @@ export const TMDbProvider = ({ children }: { children: ReactNode }) => {
 
     const fetchWithCache = useCallback(async <T,>(
         endpoint: string,
-        params: Record<string, any> = {}
+        params: Record<string, string | number | boolean | undefined> = {}
     ): Promise<T | null> => {
         if (!config?.apiKey) return null;
 
@@ -232,13 +232,13 @@ export const TMDbProvider = ({ children }: { children: ReactNode }) => {
         return data?.results?.[0] || null;
     }, [fetchWithCache]);
 
-    const fetchVideos = useCallback(async (type: 'movie' | 'tv' | 'series', id: number): Promise<any[]> => {
+    const fetchVideos = useCallback(async (type: 'movie' | 'tv' | 'series', id: number): Promise<TMDbVideo[]> => {
         const _type = type === 'series' ? 'tv' : type;
         const endpoint = `/${_type}/${id}/videos`;
         console.log(`[TMDbContext] Fetching videos for ${_type} ${id} at ${endpoint}`);
 
         try {
-            const data = await fetchWithCache<{ results: any[] }>(endpoint);
+            const data = await fetchWithCache<{ results: TMDbVideo[] }>(endpoint);
             if (!data) {
                 console.warn(`[TMDbContext] No data returned for video fetch: ${endpoint}`);
                 return [];

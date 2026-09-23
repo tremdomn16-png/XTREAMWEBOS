@@ -19,6 +19,8 @@
 # local scratch
 *.bak
 *.tsbuildinfo
+.antigravitycli/
+.claude/
 
 # next.js
 /.next/
