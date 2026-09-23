@@ -1,0 +1,55 @@
+{
+  "name": "xstream-player",
+  "version": "1.18.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "author": "Janderson Lemos",
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run build:polyfills && next build --webpack",
+    "build:polyfills": "mkdir -p public && esbuild app/polyfills.ts --bundle --format=iife --target=es2015 --outfile=public/polyfills-legacy.js --minify",
+    "start": "next start",
+    "lint": "eslint",
+    "tv:assets": "python3 scripts/gen-tv-assets.py",
+    "package:webos": "node scripts/package-tv.mjs webos",
+    "package:webos:dev": "node scripts/package-tv.mjs webos dev",
+    "package:tizen": "node scripts/package-tv.mjs tizen",
+    "package:tizen:dev": "node scripts/package-tv.mjs tizen dev",
+    "install:tv": "node scripts/install-tv.mjs",
+    "install:tv:dev": "node scripts/install-tv.mjs dev",
+    "smoke:devices": "node scripts/device-smoke.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "framer-motion": "^12.31.0",
+    "hls.js": "^1.6.15",
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "qrcode-generator": "^2.0.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.17",
+    "esbuild": "^0.28.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "playwright": "^1.63.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  },
+  "browserslist": [
+    "chrome >= 53"
+  ],
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.0": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.11.1": true
+  }
+}

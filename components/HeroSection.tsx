@@ -1,0 +1,328 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef, TouchEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { Play, Star } from 'lucide-react';
+import { useAuth } from '../app/context/AuthContext';
+import { useT } from '../app/context/I18nContext';
+import { apiFetch } from '../app/lib/apiClient';
+import Button from './ui/Button';
+import Badge from './ui/Badge';
+import FavoriteButton from './FavoriteButton';
+
+interface HeroItem {
+    id: string;
+    tmdbId?: number; // Store TMDB ID for fetching extras
+    title: string;
+    description: string;
+    backdrop: string;
+    poster: string;
+    type: 'movie' | 'series';
+    rating: number;
+    year: number;
+    logo?: string;
+    videoKey?: string | null;
+}
+
+interface HeroSectionProps {
+    type?: 'all' | 'movie' | 'series';
+}
+
+const NEXT_DELAY = 35000;
+/** How long the backdrop image shows before the trailer takes over. */
+const VIDEO_START_DELAY = 5000;
+
+export default function HeroSection({ type = 'all' }: HeroSectionProps) {
+    const { user } = useAuth();
+    const t = useT();
+    const router = useRouter();
+    const [heroItems, setHeroItems] = useState<HeroItem[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [isLoading, setIsLoading] = useState(true);
+    const [showLogo, setShowLogo] = useState(false);
+
+    // Video State
+    const [videoKey, setVideoKey] = useState<string | null>(null);
+    const [showVideo, setShowVideo] = useState(true);
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const actionsRowRef = useRef<HTMLDivElement>(null);
+    const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
+
+    // Detect TV browsers to disable heavy iframe
+    const isTV = typeof window !== 'undefined' && /Web0S|WebOS|Tizen|SmartTV|Roku/i.test(navigator.userAgent);
+
+    const handleWatch = useCallback(() => {
+        if (!heroItems.length) return;
+        const item = heroItems[currentIndex];
+        router.push(
+            item.type === 'movie'
+                ? `/dashboard/watch/movie/${item.id}`
+                : `/dashboard/watch/series/${item.id}`
+        );
+    }, [heroItems, currentIndex, router]);
+
+    // Slides are browsed through the indicators below, which switch on focus —
+    // not by hijacking Left/Right on the action buttons. Intercepting the keys
+    // there would pin focus on "Assistir" forever: the slide would change under
+    // a cursor that never reaches "Minha lista".
+    const handleIndicatorFocus = useCallback((index: number) => {
+        setCurrentIndex(index);
+    }, []);
+
+    const handleTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    }, []);
+
+    const handleTouchEnd = useCallback((e: TouchEvent<HTMLDivElement>) => {
+        if (touchStartX.current === null || touchStartY.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        touchStartX.current = null;
+        touchStartY.current = null;
+        // Only handle horizontal swipes (horizontal movement > vertical)
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+        if (dx < 0) {
+            // Swipe left → next
+            setCurrentIndex((prev) => (prev + 1) % heroItems.length);
+        } else {
+            // Swipe right → previous
+            setCurrentIndex((prev) => (prev - 1 + heroItems.length) % heroItems.length);
+        }
+    }, [heroItems.length]);
+
+    useEffect(() => {
+        if (heroItems.length <= 1) return;
+
+        const interval = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % heroItems.length);
+        }, NEXT_DELAY); // Increased duration to allow trailer viewing
+
+        return () => clearInterval(interval);
+    }, [heroItems.length]);
+
+    // Animate logo/text entrance on slide change & play trailer if videoKey is present
+    useEffect(() => {
+        setShowLogo(false);
+        setShowVideo(false);
+        setVideoKey(null);
+
+        let videoTimer: NodeJS.Timeout | null = null;
+        if (heroItems.length > 0) {
+            const currentItem = heroItems[currentIndex];
+            if (currentItem.videoKey) {
+                setVideoKey(currentItem.videoKey);
+                videoTimer = setTimeout(() => {
+                    if (!isTV) {
+                        setShowVideo(true);
+                    }
+                }, VIDEO_START_DELAY);
+            }
+        }
+
+        const logoTimer = setTimeout(() => setShowLogo(true), 500);
+
+        return () => {
+            if (videoTimer) clearTimeout(videoTimer);
+            clearTimeout(logoTimer);
+        };
+    }, [currentIndex, heroItems, isTV]);
+
+    // Browsers block a cross-origin iframe from *starting* playback with sound
+    // (Chrome/Firefox autoplay policy) — requesting `mute=0` up front leaves the
+    // embed stuck showing YouTube's own paused/play overlay, which the viewer
+    // can never dismiss since the iframe is `pointer-events-none`. Muted
+    // autoplay is always allowed, so the embed always starts muted (below); the
+    // policy only restricts *starting* audio, not unmuting already-playing
+    // media, so a postMessage `unMute` command shortly after works reliably —
+    // no reload, no visible control, no stuck overlay.
+    useEffect(() => {
+        if (isTV || !videoKey || !showVideo) return;
+
+        const timer = setTimeout(() => {
+            iframeRef.current?.contentWindow?.postMessage(
+                JSON.stringify({ event: 'command', func: 'unMute', args: [] }),
+                '*'
+            );
+        }, 1200);
+
+        return () => clearTimeout(timer);
+    }, [videoKey, showVideo, isTV]);
+
+    const fetchHeroContent = useCallback(async () => {
+        if (!user) return;
+
+        try {
+            setIsLoading(true);
+            const response = await apiFetch(`/api/catalog/hero?type=${type}`);
+            if (!response.ok) throw new Error('Failed to fetch hero highlights');
+            const result = await response.json();
+            setHeroItems(result.data || []);
+        } catch (error) {
+            console.error('[HeroSection] Failed to load hero content', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [user, type]);
+
+    useEffect(() => {
+        fetchHeroContent();
+    }, [fetchHeroContent]);
+
+    // When either action gains focus (D-pad lands on the hero's top
+    // row), bring the whole banner into view. The block is bottom-pinned
+    // inside a tall hero, so the browser's default per-element scroll
+    // leaves the backdrop top cut off. Native focusin on document survives
+    // programmatic focus() and the Chromium 53 floor; row-level bubbling
+    // was not firing when the hero first mounted after the fetch.
+    useEffect(() => {
+        const onFocusIn = (e: FocusEvent) => {
+            const target = e.target as Element | null;
+            if (target && actionsRowRef.current?.contains(target)) {
+                rootRef.current?.scrollIntoView(true);
+            }
+        };
+        document.addEventListener('focusin', onFocusIn);
+        return () => document.removeEventListener('focusin', onFocusIn);
+    }, [heroItems.length, currentIndex]);
+
+    if (isLoading || heroItems.length === 0) return null;
+
+    const currentItem = heroItems[currentIndex];
+
+    return (
+        <div
+            ref={rootRef}
+            className="relative w-full h-[52vh] md:h-[64vh] lg:h-[76vh] overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            aria-roledescription="carousel"
+        >
+            <div className="relative w-full h-full overflow-hidden">
+                {/* Background Image / Video Placeholder */}
+                <div className="absolute inset-0 z-0 w-full">
+                    {/* Fallback Image */}
+                    <div
+                        className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-1000 ease-in-out transform scale-105 ${showVideo ? 'opacity-0' : 'opacity-100'}`}
+                        style={{ backgroundImage: `url(${currentItem.backdrop})` }}
+                    />
+
+                    {/* Video Player — only mounted once `showVideo` flips (after
+                        VIDEO_START_DELAY), so `autoplay=1` doesn't start the
+                        trailer (with sound) while it's still hidden behind the
+                        backdrop image. */}
+                    {!isTV && videoKey && showVideo && (
+                        <div className="absolute w-full h-full inset-0">
+                            <iframe
+                                ref={iframeRef}
+                                className="w-full h-full scale-150 pointer-events-none"
+                                src={`https://www.youtube.com/embed/${videoKey}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&enablejsapi=1&loop=1&playlist=${videoKey}&origin=${typeof window !== 'undefined' ? window.location.origin : ''}`}
+                                title="Trailer"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom gradient — lets the text sit on top of any backdrop */}
+                <div className="absolute inset-0 z-10 bg-gradient-to-t from-bg via-bg/60 to-transparent" />
+                {/* Lateral gradient over the left half — extra contrast for bright images */}
+                <div className="absolute inset-0 z-10 w-1/2 bg-gradient-to-r from-bg/80 to-transparent" />
+            </div>
+
+            {/* Content Container */}
+            <div className="absolute inset-0 z-20 flex flex-col justify-end pb-16 md:pb-20 px-6 md:px-16 w-full">
+                <div
+                    className={`transition-all duration-700 transform ${showLogo ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}
+                >
+                    {/* Metadata Tags */}
+                    {/* Block-level wrappers, not inline spans: an inline flex item
+                        keeps its baseline descender space, which made the badge
+                        carrying the monospace rating sit higher than its siblings.
+                        Not D-pad targets: focus tops out on the actions below. */}
+                    <div className="flex items-center mb-3">
+                        <Badge tone="neutral">{currentItem.type === 'movie' ? t('hero.movie') : t('hero.series')}</Badge>
+                        <div className="ml-2">
+                            <Badge tone="neutral">{currentItem.year}</Badge>
+                        </div>
+                        <div className="ml-2">
+                            <Badge tone="rating">
+                                {/* The star stays under the 1rem line box of the
+                                    text beside it, so it marks the number without
+                                    driving the badge height. No `leading-none`
+                                    here either: the sibling badges take their
+                                    height from that same text-xs line box, and
+                                    overriding it made this one visibly shorter. */}
+                                <Star size={10} className="mr-1 flex-shrink-0" fill="currentColor" />
+                                <span className="tnum">{currentItem.rating.toFixed(1)}</span>
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-ink mb-3 leading-tight max-w-4xl">
+                        {currentItem.title}
+                    </h1>
+
+                    <p className="text-sm md:text-base text-ink-2 max-w-2xl line-clamp-2 mb-6">
+                        {currentItem.description}
+                    </p>
+
+                    {/* Top of the D-pad in the hero: ↑ stops here (title, badges
+                        and description stay out of the tab order). Either
+                        action scrolls the full banner into view (bottom-pinned
+                        inside a tall hero, so per-element scroll leaves the
+                        top cut). Direct onFocus survives the Chromium 53 floor;
+                        the document focusin listener below is the safety net
+                        for programmatic focus(). */}
+                    <div ref={actionsRowRef} className="flex items-center">
+                        <Button
+                            variant="primary"
+                            size="lg"
+                            icon={Play}
+                            onClick={handleWatch}
+                            onFocus={() => rootRef.current?.scrollIntoView(true)}
+                            className="mr-3"
+                        >
+                            {t('hero.watch')}
+                        </Button>
+                        <FavoriteButton
+                            onFocus={() => rootRef.current?.scrollIntoView(true)}
+                            item={{
+                                id: currentItem.id,
+                                type: currentItem.type,
+                                name: currentItem.title,
+                                image: currentItem.poster || currentItem.backdrop,
+                                rating: currentItem.rating.toFixed(1),
+                            }}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Pagination / Indicators — aligned under the action buttons (not
+                centered on the viewport) so ArrowDown from "Assistir"/"Minha
+                lista" lands geometrically on the content below the hero, not
+                on these, per useTvNavigation's alignment-first candidate rule. */}
+            <div className="absolute bottom-4 left-6 md:left-16 z-40 flex flex-row items-center">
+                {heroItems.map((_, idx) => (
+                    <button
+                        key={idx}
+                        onClick={() => setCurrentIndex(idx)}
+                        onFocus={() => handleIndicatorFocus(idx)}
+                        data-focusable="true"
+                        tabIndex={0}
+                        className="focus-flat px-2 py-3 flex items-center justify-center"
+                        aria-label={t('hero.goToSlide', { n: idx + 1 })}
+                        aria-current={idx === currentIndex ? 'true' : undefined}
+                    >
+                        <span
+                            className={`block h-0.5 rounded-full transition-all duration-300 ${idx === currentIndex ? 'w-8 bg-ink' : 'w-4 bg-line-strong'}`}
+                        />
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
